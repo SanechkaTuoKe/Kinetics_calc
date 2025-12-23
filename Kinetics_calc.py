@@ -119,7 +119,7 @@ def calculate_kinetics():
         c_values = []  # C - концентрация в мг/мл
         c_6ml_values = []  # C в 6мл в k-ый момент времени = C * 6
         sum_values = []  # Сумма концентраций к k-му моменту времени
-        percent_values = []  # Процент: (C в 6мл / Сумма) × 100%
+        percent_values = []  # С/С₀ × 100% - процент высвобождения
 
         for i, a in enumerate(a_values):
             # Расчет C по формуле: C = (A + 0.00608) / 27905.64
@@ -136,17 +136,12 @@ def calculate_kinetics():
             else:
                 sum_val = sum_values[-1] + c_6ml
             sum_values.append(sum_val)
-            
-            # Расчет процента: (C в 6мл / Сумма) × 100%
-            percent = (c_6ml / sum_val) * 100 if sum_val > 0 else 0
-            percent_values.append(percent)
 
         all_tables[selected_time] = {
             'a_values': a_values,
             'c_values': c_values,
             'c_6ml_values': c_6ml_values,
             'sum_values': sum_values,
-            'percent_values': percent_values,
             'total_released': sum_values[-1]  # Итоговое значение за 180 сек
         }
 
@@ -154,16 +149,15 @@ def calculate_kinetics():
         print(f"ТАБЛИЦА для времени {selected_time} мин")
         print(f"{'=' * 100}")
         print(f"{'Время, с':<10} {'Опт. плотность':<15} {'C, мг/мл':<20} "
-              f"{'C в 6мл, мг':<20} {'Сумма C, мг':<20} {'Процент':<10}")
-        print(f"{'-' * 95}")
+              f"{'C в 6мл, мг':<20} {'Сумма C, мг':<20}")
+        print(f"{'-' * 85}")
 
         for i in range(len(time_points)):
             print(f"{time_points[i]:<10} "
                   f"{a_values[i]:<15.6f} "
                   f"{c_values[i]:<20.16f} "
                   f"{c_6ml_values[i]:<20.16f} "
-                  f"{sum_values[i]:<20.16f} "
-                  f"{percent_values[i]:<10.2f}%")
+                  f"{sum_values[i]:<20.16f}")
 
         print(f"{'=' * 100}")
 
@@ -182,6 +176,51 @@ def calculate_kinetics():
         print(f"\nСоздано таблиц: {len(all_tables)}")
         print(f"Времена: {sorted(list(all_tables.keys()))}")
 
+        # Общее количество загруженного вещества C₀ = conc × 6
+        C0 = conc * 6  # мг в 6 мл
+        
+        print(f"\nРасчет процента высвобождения:")
+        print(f"C₀ (начальное количество) = {conc} мг/мл × 6 мл = {C0} мг")
+        print(f"Формула: Процент высвобождения = (Сумма C / C₀) × 100%")
+        print(f"{'=' * 80}")
+
+        # ВЫВОД ТАБЛИЦ С ПРОЦЕНТАМИ ВЫСВОБОЖДЕНИЯ (С/С₀ × 100%)
+        print(f"\n{'=' * 80}")
+        print("ТАБЛИЦЫ ПРОЦЕНТОВ ВЫСВОБОЖДЕНИЯ (С/С₀ × 100%)")
+        print(f"{'=' * 80}")
+        
+        for selected_time in sorted(all_tables.keys()):
+            print(f"\n--- Время высвобождения {selected_time} мин ---")
+            data = all_tables[selected_time]
+            print("Время (с)\tСумма C (мг)\tС/С₀, %")
+            
+            for i in range(len(time_points)):
+                # Расчет процента: (Сумма C / C₀) × 100%
+                percentage = (data['sum_values'][i] / C0) * 100 if C0 > 0 else 0
+                print(f"{time_points[i]}\t{data['sum_values'][i]:.16f}\t{percentage:.6f}")
+        
+        # СВОДНАЯ ТАБЛИЦА ДЛЯ ГРАФИКА
+        print(f"\n{'=' * 80}")
+        print("СВОДНАЯ ТАБЛИЦА ДЛЯ ПОСТРОЕНИЯ ГРАФИКА")
+        print(f"{'=' * 80}")
+        print("Процент высвобождения С/С₀ × 100% для разных времен:")
+        print(f"{'-' * 80}")
+        
+        # Заголовок
+        header = "Время (с)"
+        for time_val in sorted(all_tables.keys()):
+            header += f"\t{time_val} мин"
+        print(header)
+        
+        # Данные
+        for i in range(len(time_points)):
+            row = f"{time_points[i]}"
+            for time_val in sorted(all_tables.keys()):
+                data = all_tables[time_val]
+                percentage = (data['sum_values'][i] / C0) * 100 if C0 > 0 else 0
+                row += f"\t{percentage:.6f}"
+            print(row)
+
         # Вывод в формате для Excel
         print(f"\n{'=' * 80}")
         print("ДАННЫЕ ДЛЯ КОПИРОВАНИЯ В EXCEL:")
@@ -190,51 +229,21 @@ def calculate_kinetics():
         for selected_time in sorted(all_tables.keys()):
             print(f"\n--- Время {selected_time} мин ---")
             data = all_tables[selected_time]
-            print("Время\tОпт. плотность\tC, мг/мл\tC в 6мл, мг\tСумма C, мг\tПроцент")
+            print("Время\tОпт. плотность\tC, мг/мл\tC в 6мл, мг\tСумма C, мг\tС/С₀, %")
             for i in range(len(time_points)):
+                percentage = (data['sum_values'][i] / C0) * 100 if C0 > 0 else 0
                 print(f"{time_points[i]}\t{data['a_values'][i]:.6f}\t{data['c_values'][i]:.16f}\t"
-                      f"{data['c_6ml_values'][i]:.16f}\t{data['sum_values'][i]:.16f}\t{data['percent_values'][i]:.2f}%")
-
-        # ТАБЛИЦА ДЛЯ ГРАФИКА ВЫСВОБОЖДЕНИЯ
-        print(f"\n{'=' * 80}")
-        print("ТАБЛИЦА ДЛЯ ПОСТРОЕНИЯ ГРАФИКА ВЫСВОБОЖДЕНИЯ")
-        print(f"{'=' * 80}")
-        print("Сумма C (мг) для разных времен высвобождения:")
-        print(f"{'-' * 80}")
-        
-        # Заголовок таблицы
-        header = "Время (с)"
-        for time_val in sorted(all_tables.keys()):
-            header += f"\t{time_val} мин (мг)"
-        print(header)
-        
-        # Данные для каждого времени (15, 30, 45, ... 180)
-        for i in range(len(time_points)):
-            row = f"{time_points[i]}"
-            for time_val in sorted(all_tables.keys()):
-                data = all_tables[time_val]
-                row += f"\t{data['sum_values'][i]:.16f}"
-            print(row)
-
-        # Дополнительная информация
-        print(f"\n{'=' * 80}")
-        print("ИНФОРМАЦИЯ О РАСЧЕТЕ:")
-        print(f"{'=' * 80}")
-        print(f"1. Использованная формула: C = (A + 0.00608) / 27905.64")
-        print(f"2. Где A - оптическая плотность")
-        print(f"3. C в 6мл = C × 6")
-        print(f"4. Сумма - накопленная сумма C в 6мл")
-        print(f"5. Процент = (C в 6мл / Сумма) × 100% - показывает долю текущего шага в общей сумме на данный момент")
+                      f"{data['c_6ml_values'][i]:.16f}\t{data['sum_values'][i]:.16f}\t{percentage:.6f}")
 
         # Итоговые результаты
         print(f"\n{'=' * 80}")
-        print("ИТОГОВЫЕ РЕЗУЛЬТАТЫ НА 180 СЕКУНДЕ:")
+        print("ИТОГОВЫЕ ПРОЦЕНТЫ ВЫСВОБОЖДЕНИЯ (на 180 секунде):")
         print(f"{'=' * 80}")
-        print("Время высвобождения\tСумма C (мг)\tПроцент последнего шага")
+        print("Время высвобождения\tСумма C (мг)\tС/С₀, %")
         for selected_time in sorted(all_tables.keys()):
             total_released = all_tables[selected_time]['total_released']
-            last_percent = all_tables[selected_time]['percent_values'][-1]
-            print(f"{selected_time} мин\t\t{total_released:.16f}\t{last_percent:.2f}%")
+            percentage = (total_released / C0) * 100 if C0 > 0 else 0
+            print(f"{selected_time} мин\t\t{total_released:.16f}\t{percentage:.6f}")
 
         # Предложение сохранить результаты
         save = input("\nСохранить все результаты в файл? (да/нет): ").lower()
@@ -245,6 +254,8 @@ def calculate_kinetics():
                 f.write(f"Пересчетка концентраций для кинетики (by Саша)\n")
                 f.write(f"Вещество: {substance_name}\n")
                 f.write(f"Концентрация раствора: {conc} мг/мл\n")
+                f.write(f"C₀ (начальное количество) = {conc} × 6 = {C0} мг\n")
+                f.write(f"Формула: Процент высвобождения = (Сумма C / C₀) × 100%\n")
                 f.write(f"Количество таблиц: {len(all_tables)}\n")
                 f.write(f"Дата: {datetime.now().strftime('%d.%m.%Y %H:%M')}\n")
                 f.write(f"{'=' * 80}\n\n")
@@ -254,48 +265,52 @@ def calculate_kinetics():
                     f.write(f"ТАБЛИЦА для времени высвобождения {selected_time} мин\n")
                     f.write(f"{'=' * 100}\n")
                     f.write(f"{'Время, с':<10} {'Опт. плотность':<15} {'C, мг/мл':<20} "
-                            f"{'C в 6мл, мг':<20} {'Сумма C, мг':<20} {'Процент':<10}\n")
-                    f.write(f"{'-' * 95}\n")
+                            f"{'C в 6мл, мг':<20} {'Сумма C, мг':<20} {'С/С₀, %':<15}\n")
+                    f.write(f"{'-' * 100}\n")
 
                     for i in range(len(time_points)):
+                        percentage = (data['sum_values'][i] / C0) * 100 if C0 > 0 else 0
                         f.write(f"{time_points[i]:<10} {data['a_values'][i]:<15.6f} "
                                 f"{data['c_values'][i]:<20.16f} "
                                 f"{data['c_6ml_values'][i]:<20.16f} "
                                 f"{data['sum_values'][i]:<20.16f} "
-                                f"{data['percent_values'][i]:<10.2f}%\n")
+                                f"{percentage:<15.6f}\n")
 
                     f.write(f"\nДанные для Excel (время {selected_time} мин):\n")
-                    f.write("Время\tОпт. плотность\tC, мг/мл\tC в 6мл, мг\tСумма C, мг\tПроцент\n")
+                    f.write("Время\tОпт. плотность\tC, мг/мл\tC в 6мл, мг\tСумма C, мг\tС/С₀, %\n")
                     for i in range(len(time_points)):
+                        percentage = (data['sum_values'][i] / C0) * 100 if C0 > 0 else 0
                         f.write(f"{time_points[i]}\t{data['a_values'][i]:.6f}\t{data['c_values'][i]:.16f}\t"
-                                f"{data['c_6ml_values'][i]:.16f}\t{data['sum_values'][i]:.16f}\t"
-                                f"{data['percent_values'][i]:.2f}%\n")
+                                f"{data['c_6ml_values'][i]:.16f}\t{data['sum_values'][i]:.16f}\t{percentage:.6f}\n")
                     
                     f.write(f"\n{'-' * 80}\n\n")
                 
-                # ТАБЛИЦА ДЛЯ ГРАФИКА
-                f.write(f"ТАБЛИЦА ДЛЯ ПОСТРОЕНИЯ ГРАФИКА ВЫСВОБОЖДЕНИЯ\n")
+                # Сводная таблица для графика
+                f.write(f"СВОДНАЯ ТАБЛИЦА ДЛЯ ГРАФИКА\n")
                 f.write(f"{'=' * 80}\n")
+                f.write("Процент высвобождения С/С₀ × 100%:\n")
+                f.write(f"{'-' * 80}\n")
                 f.write("Время (с)")
                 for time_val in sorted(all_tables.keys()):
-                    f.write(f"\t{time_val} мин (мг)")
+                    f.write(f"\t{time_val} мин")
                 f.write("\n")
                 
                 for i in range(len(time_points)):
                     row = f"{time_points[i]}"
                     for time_val in sorted(all_tables.keys()):
                         data = all_tables[time_val]
-                        row += f"\t{data['sum_values'][i]:.16f}"
+                        percentage = (data['sum_values'][i] / C0) * 100 if C0 > 0 else 0
+                        row += f"\t{percentage:.6f}"
                     f.write(row + "\n")
                 
                 # Итоги
                 f.write(f"\nИТОГИ НА 180 СЕКУНДЕ:\n")
                 f.write(f"{'=' * 80}\n")
-                f.write("Время высвобождения\tСумма C (мг)\tПроцент последнего шага\n")
+                f.write("Время высвобождения\tСумма C (мг)\tС/С₀, %\n")
                 for selected_time in sorted(all_tables.keys()):
                     total_released = all_tables[selected_time]['total_released']
-                    last_percent = all_tables[selected_time]['percent_values'][-1]
-                    f.write(f"{selected_time} мин\t\t{total_released:.16f}\t{last_percent:.2f}%\n")
+                    percentage = (total_released / C0) * 100 if C0 > 0 else 0
+                    f.write(f"{selected_time} мин\t\t{total_released:.16f}\t{percentage:.6f}\n")
 
             print(f"✓ Все результаты сохранены в файл: {filename}")
     else:
